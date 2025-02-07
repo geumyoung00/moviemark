@@ -1,72 +1,85 @@
-import { useState, useCallback, ChangeEvent, FormEvent } from "react";
+import { useState, useCallback, ChangeEvent, FormEvent } from 'react';
 
-import { signup } from "@/api/auth/index";
-import { useToastMessageContext } from "@/providers/ToastMessageProvider";
-import { validateEmail, validatePassword } from "@/utils/validate";
+import { signup } from '@/api/auth/index';
+import { useToastMessageContext } from '@/providers/ToastMessageProvider';
+import { validateEmail, validatePassword } from '@/utils/validate';
 
-import { SignUpFormProps } from "./SignUpForm";
+import { SignUpFormProps } from './SignUpForm';
+
+type FormType = 'email' | 'password' | 'passwordConfirm';
 
 interface FormErrors {
   email?: string;
   password?: string;
+  passwordConfirm?: string;
+}
+
+interface FormState {
+  email: string;
+  password: string;
+  passwordConfirm: string;
 }
 
 export const useSignUpForm = ({ onSuccess, onError }: SignUpFormProps) => {
-	const [email, setEmail] = useState<string>("");
-	const [password, setPassword] = useState<string>("");
-	const [errors, setErrors] = useState<FormErrors>({});
-	const [isLoading, setIsLoading] = useState(false);
-	const { showToastMessage } = useToastMessageContext();
+  // const [email, setEmail] = useState<string>('');
+  // const [password, setPassword] = useState<string>('');
+  // const [passwordConfirm, setPasswordConfirm] = useState<string>('');
 
-	const validateForm = useCallback(() => {
-		const newErrors: FormErrors = {};
+  const [formState, setFormState] = useState<FormState>({ email: '', password: '', passwordConfirm: '' });
 
-		const emailError = validateEmail(email);
-		if (emailError) newErrors.email = emailError;
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const { showToastMessage } = useToastMessageContext();
 
-		const passwordError = validatePassword(password);
-		if (passwordError) newErrors.password = passwordError;
+  const validateForm = useCallback(() => {
+    const newErrors: FormErrors = {};
 
-		setErrors(newErrors);
-		return Object.keys(newErrors).length === 0;
-	}, [email, password]);
+    const emailError = validateEmail(formState.email);
+    if (emailError) newErrors.email = emailError;
 
-	const handleEmailChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-		setEmail(e.target.value);
-		setErrors(prev => ({ ...prev, email: "" }));
-	}, []);
+    const passwordError = validatePassword(formState.password);
+    if (passwordError) newErrors.password = passwordError;
 
-	const handlePasswordChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-		setPassword(e.target.value);
-		setErrors(prev => ({ ...prev, password: "" }));
-	}, []);
+    if (formState.password !== formState.passwordConfirm) newErrors.passwordConfirm = '비밀번호가 다릅니다.';
 
-	const handleSubmit = async (e: FormEvent) => {
-		e.preventDefault();
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [formState.email, formState.password, formState.passwordConfirm]);
 
-		if (!validateForm()) return;
+  const handleFormChange = useCallback(
+    (key: FormType) => (e: ChangeEvent<HTMLInputElement>) => {
+      const { value } = e.target;
 
-		setIsLoading(true);
-		try {
-			await signup({ email, password });
-			showToastMessage({ type: "success", message: "회원가입 성공!" });
-			onSuccess?.();
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : "회원가입 실패";
-			showToastMessage({ type: "error", message: errorMessage });
-			onError?.(error as Error);
-		} finally {
-			setIsLoading(false);
-		}
-	};
+      setFormState((prev) => ({ ...prev, [key]: value }));
+      setErrors((prev) => ({ ...prev, [key]: '' }));
+    },
+    []
+  );
 
-	return {
-		email,
-		password,
-		errors,
-		isLoading,
-		handleSubmit,
-		handleEmailChange,
-		handlePasswordChange,
-	};
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    try {
+      await signup({ email: formState.email, password: formState.password });
+      showToastMessage({ type: 'success', message: '회원가입 성공!' });
+      onSuccess?.();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '회원가입 실패';
+      showToastMessage({ type: 'error', message: errorMessage });
+      onError?.(error as Error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return {
+    formState,
+    errors,
+    isLoading,
+    handleSubmit,
+    handleFormChange,
+  };
 };
